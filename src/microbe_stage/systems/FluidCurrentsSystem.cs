@@ -1,4 +1,4 @@
-﻿namespace Systems;
+namespace Systems;
 
 using System;
 using Components;
@@ -7,7 +7,7 @@ using DefaultEcs.System;
 using DefaultEcs.Threading;
 using Godot;
 using Newtonsoft.Json;
-using FastNoiseLite = FastNoiseLite;
+//using FastNoiseLite = FastNoiseLite;
 using World = DefaultEcs.World;
 
 /// <summary>
@@ -26,37 +26,69 @@ using World = DefaultEcs.World;
 public sealed class FluidCurrentsSystem : AEntitySetSystem<float>
 {
     private const float DISTURBANCE_TIMESCALE = 1.000f;
-    private const float CURRENTS_TIMESCALE = 1.000f / 500.0f;
-    private const float CURRENTS_STRETCHING_MULTIPLIER = 1.0f / 10.0f;
+    private const float CURRENTS_TIMESCALE = 1.0f / 500.0f;
     private const float MIN_CURRENT_INTENSITY = 0.4f;
     private const float DISTURBANCE_TO_CURRENTS_RATIO = 0.15f;
-    private const float POSITION_SCALING = 0.9f;
+    private const float NOISE_SCALE = 320.0f;
 
     // TODO: test the inbuilt fast noise in Godot to see if it is faster / a good enough replacement
-    private readonly FastNoiseLite noiseDisturbancesX;
-    private readonly FastNoiseLite noiseDisturbancesY;
-    private readonly FastNoiseLite noiseCurrentsX;
-    private readonly FastNoiseLite noiseCurrentsY;
-
+    // TODO: re-implement 'disturbances'
+    
+    //private readonly Noise noiseCurrents;
+    //private readonly Image noiseImage;
+    private int vectorFieldWidth;
+    private int vectorFieldHeight;
+    private Vector2[] vectorField;
     // private readonly Vector2 scale = new Vector2(0.05f, 0.05f);
 
     [JsonProperty]
     private float currentsTimePassed;
 
+    private async void LoadNoiseImage() {
+        var noiseTexture = GD.Load<NoiseTexture2D>("res://src/microbe_stage/systems/CurrentNoiseTexture.tres");
+        var noiseImage = noiseTexture.GetImage();
+        if (noiseImage == null)
+        {
+            await new Signal(noiseTexture, "changed");
+            noiseImage = noiseTexture.GetImage();
+        }
+
+        vectorFieldWidth = noiseImage.GetWidth();
+        vectorFieldHeight = noiseImage.GetHeight();
+
+        vectorField = new Vector2[vectorFieldWidth * vectorFieldHeight];
+
+        // Convert to vector2 tangent-graident field
+        for (int y = 0; y < vectorFieldHeight; y++)
+        {
+            for (int x = 0; x < vectorFieldWidth; x++)
+            {
+                float sampleOrigin = (float)noiseImage.GetPixel(x, y)[0];
+                float sampleX = (float)noiseImage.GetPixel((x + 30) % vectorFieldWidth, y)[0];
+                float sampleY = (float)noiseImage.GetPixel(x, (y + 30) % vectorFieldHeight)[0];
+                Vector2 gradient = new(sampleOrigin - sampleX, sampleOrigin - sampleY);
+                Vector2 gradientTangent = new(-gradient.Y, gradient.X);
+                vectorField[y * vectorFieldWidth + x] = gradientTangent.Normalized();
+            }
+        }
+
+        // Saves the output for debug purposes
+        var imageDebug = Image.Create(vectorFieldWidth, vectorFieldHeight, false, (Image.Format)4);
+        for (int i = 0; i < vectorFieldWidth * vectorFieldHeight; ++i)
+        {
+            float r = Mathf.Clamp(vectorField[i].X, -1.0f, 1.0f) * 0.5f + 0.5f;
+            float b =  Mathf.Clamp(vectorField[i].Y, -1.0f, 1.0f) * 0.5f + 0.5f;
+            imageDebug.SetPixel(i / vectorFieldWidth, i % vectorFieldWidth,
+                new Color(r, 0f, b));
+        }
+        imageDebug.SavePng("user://testCurrent.png");
+
+    }
+
     public FluidCurrentsSystem(World world, IParallelRunner runner) : base(world, runner,
         Constants.SYSTEM_HIGHER_ENTITIES_PER_THREAD)
     {
-        noiseDisturbancesX = new FastNoiseLite(69);
-        noiseDisturbancesX.SetNoiseType(FastNoiseLite.NoiseType.Perlin);
-
-        noiseDisturbancesY = new FastNoiseLite(13);
-        noiseDisturbancesY.SetNoiseType(FastNoiseLite.NoiseType.Perlin);
-
-        noiseCurrentsX = new FastNoiseLite(420);
-        noiseCurrentsX.SetNoiseType(FastNoiseLite.NoiseType.Perlin);
-
-        noiseCurrentsY = new FastNoiseLite(1337);
-        noiseCurrentsY.SetNoiseType(FastNoiseLite.NoiseType.Perlin);
+        LoadNoiseImage();
     }
 
     /// <summary>
@@ -67,33 +99,18 @@ public sealed class FluidCurrentsSystem : AEntitySetSystem<float>
     {
         this.currentsTimePassed = currentsTimePassed;
 
-        noiseDisturbancesX = null!;
-        noiseDisturbancesY = null!;
-        noiseCurrentsX = null!;
-        noiseCurrentsY = null!;
+        //noiseImage = null!;
     }
 
     public Vector2 VelocityAt(Vector2 position)
     {
-        var scaledPosition = position * POSITION_SCALING;
+        var scaledPosition = new Vector2(position.X * vectorFieldWidth, position.Y * vectorFieldHeight) / NOISE_SCALE;
+        scaledPosition = scaledPosition.PosMod(new Vector2(vectorFieldWidth, vectorFieldHeight));
+        var currentsVelocity = vectorField[((int)scaledPosition.Y) * vectorFieldWidth + ((int)scaledPosition.X)];
+        currentsVelocity = currentsVelocity.Normalized();
 
-        float disturbancesX = noiseDisturbancesX.GetNoise(scaledPosition.X, scaledPosition.Y,
-            currentsTimePassed * DISTURBANCE_TIMESCALE);
-        float disturbancesY = noiseDisturbancesY.GetNoise(scaledPosition.X, scaledPosition.Y,
-            currentsTimePassed * DISTURBANCE_TIMESCALE);
-
-        float currentsX = noiseCurrentsX.GetNoise(scaledPosition.X * CURRENTS_STRETCHING_MULTIPLIER,
-            scaledPosition.Y, currentsTimePassed * CURRENTS_TIMESCALE);
-        float currentsY = noiseCurrentsY.GetNoise(scaledPosition.X,
-            scaledPosition.Y * CURRENTS_STRETCHING_MULTIPLIER,
-            currentsTimePassed * CURRENTS_TIMESCALE);
-
-        var disturbancesVelocity = new Vector2(disturbancesX, disturbancesY);
-        var currentsVelocity = new Vector2(Math.Abs(currentsX) > MIN_CURRENT_INTENSITY ? currentsX : 0.0f,
-            Math.Abs(currentsY) > MIN_CURRENT_INTENSITY ? currentsY : 0.0f);
-
-        return (disturbancesVelocity * DISTURBANCE_TO_CURRENTS_RATIO) +
-            (currentsVelocity * (1.0f - DISTURBANCE_TO_CURRENTS_RATIO));
+        // TODO: Re-implement min-velocity
+        return currentsVelocity;
     }
 
     protected override void PreUpdate(float delta)
@@ -114,8 +131,10 @@ public sealed class FluidCurrentsSystem : AEntitySetSystem<float>
         ref var physicsControl = ref entity.Get<ManualPhysicsControl>();
 
         var pos = new Vector2(position.Position.X, position.Position.Z);
-        var vel = VelocityAt(pos) * Constants.MAX_FORCE_APPLIED_BY_CURRENTS;
+        var vel = VelocityAt(pos) * 100000.0f * Constants.MAX_FORCE_APPLIED_BY_CURRENTS;
 
         physicsControl.ImpulseToGive += new Vector3(vel.X, 0, vel.Y) * delta;
+        physicsControl.PhysicsApplied = false;
+
     }
 }

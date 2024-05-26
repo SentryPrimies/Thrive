@@ -1,0 +1,7 @@
+[gd_resource type="NoiseTexture2D" load_steps=2 format=3 uid="uid://xo18b4e0ucmp"]
+
+[ext_resource type="FastNoiseLite" uid="uid://v7uafl3omqkw" path="res://src/microbe_stage/systems/CurrentNoise.tres" id="1_xu5xj"]
+
+[resource]
+seamless = true
+noise = ExtResource("1_xu5xj")

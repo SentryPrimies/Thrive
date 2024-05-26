@@ -1,9 +1,11 @@
-[gd_scene load_steps=13 format=3 uid="uid://dva08tpqyn15k"]
+[gd_scene load_steps=19 format=3 uid="uid://dva08tpqyn15k"]
 
 [ext_resource type="Script" path="res://src/microbe_stage/MicrobeStage.cs" id="1"]
 [ext_resource type="PackedScene" uid="uid://bako5jivv1dji" path="res://src/microbe_stage/MicrobeCamera.tscn" id="2"]
 [ext_resource type="PackedScene" uid="uid://bt2fv82h01ice" path="res://src/microbe_stage/MicrobeHUD.tscn" id="3"]
+[ext_resource type="Shader" path="res://shaders/CurrentFlowParticles.gdshader" id="3_pkkwu"]
 [ext_resource type="PackedScene" uid="uid://dew8qwd0buvnb" path="res://src/thriveopedia/fossilisation/FossilisationDialog.tscn" id="4"]
+[ext_resource type="Texture2D" uid="uid://xo18b4e0ucmp" path="res://src/microbe_stage/systems/CurrentNoiseTexture.tres" id="4_kgi30"]
 [ext_resource type="Script" path="res://src/microbe_stage/PlayerMicrobeInput.cs" id="7"]
 [ext_resource type="Script" path="res://src/microbe_stage/CompoundCloudSystem.cs" id="10"]
 [ext_resource type="PackedScene" uid="uid://devtugnggmuol" path="res://src/general/PauseMenu.tscn" id="11"]
@@ -12,6 +14,28 @@
 [ext_resource type="PackedScene" uid="uid://d116aks100ulm" path="res://src/tutorial/microbe_stage/MicrobeTutorialGUI.tscn" id="74"]
 [ext_resource type="PackedScene" path="res://src/engine/GuidanceLine.tscn" id="75"]
 [ext_resource type="PackedScene" uid="uid://dwkek50fju0fu" path="res://src/microbe_stage/PatchNameOverlay.tscn" id="85"]
+
+[sub_resource type="ShaderMaterial" id="ShaderMaterial_tos3r"]
+shader = ExtResource("3_pkkwu")
+shader_parameter/noiseScale = 320.0
+shader_parameter/colorA = Color(1, 1, 1, 1)
+shader_parameter/colorB = Color(1, 1, 1, 1)
+shader_parameter/noise = ExtResource("4_kgi30")
+
+[sub_resource type="Curve" id="Curve_joeds"]
+_data = [Vector2(0, 0), 0.0, 16.7243, 0, 0, Vector2(0.0798005, 0.615825), 3.04582, 3.04582, 0, 0, Vector2(0.42394, 0.950429), 0.0, 0.0, 0, 0, Vector2(1, 0), -1.59446, 0.0, 0, 0]
+point_count = 4
+
+[sub_resource type="StandardMaterial3D" id="StandardMaterial3D_3gobr"]
+transparency = 1
+shading_mode = 0
+vertex_color_use_as_albedo = true
+use_particle_trails = true
+
+[sub_resource type="RibbonTrailMesh" id="RibbonTrailMesh_ho8n7"]
+material = SubResource("StandardMaterial3D_3gobr")
+shape = 0
+curve = SubResource("Curve_joeds")
 
 [node name="MicrobeStage" type="Node"]
 process_priority = -1
@@ -25,6 +49,24 @@ HUDRootPath = NodePath("MicrobeHUD")
 [node name="PrimaryCamera" parent="World" instance=ExtResource("2")]
 process_mode = 3
 AutoProcessWhilePaused = true
+ZoomSpeed = null
+MinCameraHeight = null
+MaxCameraHeight = null
+InterpolateSpeed = null
+InterpolateZoomSpeed = null
+SnapWithDistanceLessThan = null
+LightLevelInterpolateSpeed = null
+
+[node name="GPUParticles3D" type="GPUParticles3D" parent="World/PrimaryCamera"]
+transform = Transform3D(1, 0, 0, 0, -1.62921e-07, -1, 0, 1, -1.62921e-07, 0.171776, 0.0092488, -9.26312)
+amount = 4000
+lifetime = 20.0
+preprocess = 3.0
+visibility_aabb = AABB(-40, -4, -40, 80, 8, 80)
+trail_enabled = true
+trail_lifetime = 1.0
+process_material = SubResource("ShaderMaterial_tos3r")
+draw_pass_1 = SubResource("RibbonTrailMesh_ho8n7")
 
 [node name="DynamicallySpawned" type="Node" parent="World"]
 
@@ -36,11 +78,14 @@ transform = Transform3D(-0.687551, 0.322878, -0.650403, 0.0453496, 0.913048, 0.4
 shadow_enabled = true
 
 [node name="GuidanceLine" parent="World" instance=ExtResource("75")]
-visible = false
+LineStart = null
+LineEnd = null
+Colour = null
 
 [node name="PlayerHoverInfo" type="Node" parent="."]
 process_mode = 3
 script = ExtResource("22")
+RaycastDistance = null
 
 [node name="PlayerMicrobeInput" type="Node" parent="."]
 script = ExtResource("7")
@@ -50,6 +95,7 @@ offset_left = -0.943848
 offset_right = -0.943848
 
 [node name="MicrobeHUD" parent="." node_paths=PackedStringArray("menu") instance=ExtResource("3")]
+IngestedMatterBarFillColour = null
 FossilisationButtonLayerPath = NodePath("FossilisationButtonLayer")
 FossilisationDialogPath = NodePath("FossilisationDialog")
 menu = NodePath("../PauseMenu")
@@ -87,15 +133,3 @@ size_flags_vertical = 6
 mouse_filter = 2
 
 [node name="PauseMenu" parent="." instance=ExtResource("11")]
-
-[connection signal="OnEjectEngulfedButtonPressed" from="MicrobeHUD" to="PlayerMicrobeInput" method="EjectAllEngulfed"]
-[connection signal="OnFireToxinButtonPressed" from="MicrobeHUD" to="PlayerMicrobeInput" method="EmitToxin"]
-[connection signal="OnOpenMenu" from="MicrobeHUD" to="PauseMenu" method="Open"]
-[connection signal="OnOpenMenuToHelp" from="MicrobeHUD" to="PauseMenu" method="OpenToHelp"]
-[connection signal="OnSecreteSlimeButtonPressed" from="MicrobeHUD" to="PlayerMicrobeInput" method="SecreteSlime" binds= [1.0]]
-[connection signal="OnToggleBindingButtonPressed" from="MicrobeHUD" to="PlayerMicrobeInput" method="ToggleBinding"]
-[connection signal="OnToggleEngulfButtonPressed" from="MicrobeHUD" to="PlayerMicrobeInput" method="ToggleEngulf"]
-[connection signal="OnUnbindAllButtonPressed" from="MicrobeHUD" to="PlayerMicrobeInput" method="UnbindAll"]
-[connection signal="OnSpeciesFossilised" from="MicrobeHUD/FossilisationDialog" to="MicrobeHUD" method="UpdateFossilisationButtonStates"]
-[connection signal="OnHelpMenuOpenRequested" from="TutorialGUI" to="PauseMenu" method="OpenToHelp"]
-[connection signal="MakeSave" from="PauseMenu" to="." method="SaveGame"]
