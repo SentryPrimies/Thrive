@@ -152,6 +152,9 @@ public static class EngulferHelpers
         if (!cellProperties.MembraneType.CanEngulf)
             return null;
 
+        if (engulferEntity.Get<OrganelleContainer>().HexCount - organelles.HexCount > Constants.TUTORIAL_ENGULF_MAX_SIZE_DIFFERENCE)
+            return null;
+
         Vector3? nearestPoint = null;
         float nearestDistanceSquared = float.MaxValue;
         var searchRadiusSquared = searchRadius * searchRadius;
