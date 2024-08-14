@@ -26,6 +26,8 @@ public struct MicrobeAI
 
     public float PursuitThreshold;
 
+    public float Strain;
+
     /// <summary>
     ///   A value between 0.0f and 1.0f, this is the portion of the microbe's atp bar that needs to refill
     ///   before resuming motion.

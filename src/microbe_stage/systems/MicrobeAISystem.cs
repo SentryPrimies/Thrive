@@ -38,6 +38,7 @@ using World = DefaultEcs.World;
 [ReadsComponent(typeof(Engulfable))]
 [ReadsComponent(typeof(MicrobeColony))]
 [ReadsComponent(typeof(WorldPosition))]
+[ReadsComponent(typeof(StrainAffected))]
 [RunsAfter(typeof(OrganelleComponentFetchSystem))]
 [RunsBefore(typeof(MicrobeMovementSystem))]
 [RunsBefore(typeof(MicrobeEmissionSystem))]
@@ -210,6 +211,13 @@ public sealed class MicrobeAISystem : AEntitySetSystem<float>, ISpeciesMemberLoc
                 GD.Print("AI is controlling the player microbe");
                 printedPlayerControlMessage = true;
             }
+        }
+
+        if (entity.Has<StrainAffected>())
+        {
+            ref var strain = ref entity.Get<StrainAffected>();
+
+            ai.Strain = strain.CurrentStrain;
         }
 
         ref var health = ref entity.Get<Health>();
@@ -448,6 +456,10 @@ public sealed class MicrobeAISystem : AEntitySetSystem<float>, ISpeciesMemberLoc
             {
                 PursueAndConsumeChunks(ref position, ref ai, ref control, ref engulfer, entity,
                     targetChunk.Value.Position, speciesActivity, random, ref organelles, isIronEater, isChunkBigIron);
+
+                if (ai.Strain < Constants.MAX_STRAIN_PER_ENTITY * 0.7f)
+                    control.Sprinting = true;
+
                 return;
             }
         }
@@ -485,8 +497,8 @@ public sealed class MicrobeAISystem : AEntitySetSystem<float>, ISpeciesMemberLoc
         // Otherwise just wander around and look for compounds
         if (!isSessile)
         {
-            SeekCompounds(in entity, ref ai, ref position, ref control, ref organelles, ref absorber, compounds,
-                speciesActivity, speciesFocus, random);
+            SeekCompounds(in entity, ref ai, ref position, ref control, ref organelles,
+                ref absorber, compounds, speciesActivity, speciesFocus, random);
         }
         else
         {
@@ -787,10 +799,10 @@ public sealed class MicrobeAISystem : AEntitySetSystem<float>, ISpeciesMemberLoc
                 // If the predator is right on top of us there's a chance to try and swing with a pilus
                 ai.MoveWithRandomTurn(2.5f, 3.0f, position.Position, ref control, speciesActivity, random);
             }
-
-            // Sprint until full strain
-            control.Sprinting = true;
         }
+
+        // Sprint until full strain
+        control.Sprinting = true;
 
         // If prey is confident enough, it will try and launch toxin at the predator
         if (speciesAggression > speciesFear &&
@@ -840,8 +852,8 @@ public sealed class MicrobeAISystem : AEntitySetSystem<float>, ISpeciesMemberLoc
     }
 
     private void SeekCompounds(in Entity entity, ref MicrobeAI ai, ref WorldPosition position,
-        ref MicrobeControl control, ref OrganelleContainer organelles, ref CompoundAbsorber absorber,
-        CompoundBag compounds, float speciesActivity, float speciesFocus, Random random)
+        ref MicrobeControl control, ref OrganelleContainer organelles,
+        ref CompoundAbsorber absorber, CompoundBag compounds, float speciesActivity, float speciesFocus, Random random)
     {
         // More active species just try to get distance to avoid over-clustering
         if (RollCheck(speciesActivity, Constants.MAX_SPECIES_ACTIVITY + Constants.MAX_SPECIES_ACTIVITY / 2,
@@ -867,6 +879,10 @@ public sealed class MicrobeAISystem : AEntitySetSystem<float>, ISpeciesMemberLoc
             {
                 ai.LastSmelledCompoundPosition = null;
                 RunAndTumble(ref ai, ref control, ref position, ref absorber, compounds, speciesActivity, random);
+
+                if (ai.Strain < Constants.MAX_STRAIN_PER_ENTITY * 0.7f)
+                    control.Sprinting = true;
+
                 return;
             }
 
