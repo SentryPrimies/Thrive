@@ -802,7 +802,8 @@ public sealed class MicrobeAISystem : AEntitySetSystem<float>, ISpeciesMemberLoc
         }
 
         // Sprint until full strain
-        control.Sprinting = true;
+        if (RollCheck(speciesFear, Constants.MAX_SPECIES_FEAR, random))
+            control.Sprinting = true;
 
         // If prey is confident enough, it will try and launch toxin at the predator
         if (speciesAggression > speciesFear &&
@@ -879,9 +880,6 @@ public sealed class MicrobeAISystem : AEntitySetSystem<float>, ISpeciesMemberLoc
             {
                 ai.LastSmelledCompoundPosition = null;
                 RunAndTumble(ref ai, ref control, ref position, ref absorber, compounds, speciesActivity, random);
-
-                if (ai.Strain < Constants.MAX_STRAIN_PER_ENTITY * 0.7f)
-                    control.Sprinting = true;
 
                 return;
             }
