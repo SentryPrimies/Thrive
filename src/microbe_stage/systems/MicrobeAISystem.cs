@@ -786,7 +786,9 @@ public sealed class MicrobeAISystem : AEntitySetSystem<float>, ISpeciesMemberLoc
 
         control.LookAtPoint = ai.TargetPosition;
 
-        if (position.Position.DistanceSquaredTo(predatorLocation) < 100.0f)
+        var distanceToPredator = position.Position.DistanceSquaredTo(predatorLocation);
+
+        if (distanceToPredator < 100.0f)
         {
             if ((organelles.SlimeJets?.Count ?? 0) > 0 &&
                 RollCheck(speciesFear, Constants.MAX_SPECIES_FEAR, random))
@@ -802,7 +804,7 @@ public sealed class MicrobeAISystem : AEntitySetSystem<float>, ISpeciesMemberLoc
         }
 
         // Sprint until full strain if fears enough
-        if (RollCheck(speciesFear, Constants.MAX_SPECIES_FEAR, random))
+        if (distanceToPredator < speciesFear * 300.0f / Constants.MAX_SPECIES_FEAR)
             control.Sprinting = true;
 
         // If prey is confident enough, it will try and launch toxin at the predator
