@@ -801,7 +801,7 @@ public sealed class MicrobeAISystem : AEntitySetSystem<float>, ISpeciesMemberLoc
             }
         }
 
-        // Sprint until full strain
+        // Sprint until full strain if fears enough
         if (RollCheck(speciesFear, Constants.MAX_SPECIES_FEAR, random))
             control.Sprinting = true;
 
