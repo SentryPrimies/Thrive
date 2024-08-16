@@ -843,8 +843,13 @@ public sealed class MicrobeAISystem : AEntitySetSystem<float>, ISpeciesMemberLoc
         {
             control.SetMoveSpeed(Constants.AI_BASE_MOVEMENT);
 
-            if ((position.Rotation * Vector3.Forward).AngleTo(ai.TargetPosition - position.Position) < 0.1)
+            var toTarget = ai.TargetPosition - position.Position;
+
+
+            if ((position.Rotation * -Vector3.Forward).AngleTo(toTarget) >= 0.2)
+            {
                 control.Sprinting = true;
+            }
         }
 
         // Predators can use slime jets as an ambush mechanism
