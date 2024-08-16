@@ -843,7 +843,7 @@ public sealed class MicrobeAISystem : AEntitySetSystem<float>, ISpeciesMemberLoc
         {
             control.SetMoveSpeed(Constants.AI_BASE_MOVEMENT);
 
-            if (position.Position.AngleTo(ai.TargetPosition) <= 0.1)
+            if ((position.Rotation * Vector3.Forward).AngleTo(ai.TargetPosition - position.Position) < 0.1)
                 control.Sprinting = true;
         }
 
